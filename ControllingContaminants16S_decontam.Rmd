@@ -4,33 +4,28 @@ author: "Lisa Karstens"
 output: html_document
 ---
 ## Introduction
-We recently performed a study to understand the impact of decreasing microbial biomass on 16S rRNA gene sequencing experiments and evaluate the current computational strategies to control for contaminants (preprint available here). 
+We recently performed a study to understand the impact of decreasing microbial biomass on 16S rRNA gene sequencing experiments and evaluate the current computational strategies to control for contaminants. 
 
 Here, we provide the compiled R Markdown document to reproduce the analysis presented in the manuscript, divided into 6 primary sections:  
 
-* [Introduction and evaluating contaminants](https://lakarstens.github.io/ControllingContaminants16S/Analyses/ControllingContaminants16S.html)
-* [Removing contaminant ASVs with filtering methods](https://lakarstens.github.io/ControllingContaminants16S/Analyses/ControllingContaminants16S_Filtering.html)
+* Introduction and evaluating contaminants
+* Removing contaminant ASVs with filtering methods
 * Removing contaminant ASVs with decontam (this document)
-* [Removing contaminant ASVs with SourceTracker](https://lakarstens.github.io/ControllingContaminants16S/Analyses/ControllingContaminants16S_SourceTrackerPrep.html)
-* [Evaluating SourceTracker results](https://lakarstens.github.io/ControllingContaminants16S/Analyses/ControllingContaminants16S_SourceTracker.html)
-* [Final evaluation of all methods](https://lakarstens.github.io/ControllingContaminants16S/Analyses/ControllingContaminantsResults.html)  
-
-For more information about the experimental design and preprocessing of the data, see the [**Introduction and evaluating contaminants**](./ControllingConatminants16S.html) section.  
+* Removing contaminant ASVs with SourceTracker
+* Evaluating SourceTracker results
+* Final evaluation of all methods
 
 ## Remove contaminant ASVs with decontam
-Decontam is an R package developed specifically to identify and remove contaminants from 16S rRNA gene sequencing experiments using a simple statistical approach. See the preprint [here](https://www.biorxiv.org/content/early/2017/11/17/221499) and tutorials [here](https://benjjneb.github.io/decontam/). 
 
-Decontam implements two primary approaches for identifying contaminants. The first approach is a *frequency* approach which identifies significant inverse correlations between ASV abundance and DNA concentration measured **prior** to library prep. The second approach is *prevalence* approach which identifies ASVs that appear more often (are more prevalent) in blank control samples than in experimental samples. There are also many combinations available for using information from both of these approaches (see the decontam website for more details).  
+Decontam is an R package developed specifically to identify and remove contaminants from 16S rRNA gene sequencing experiments using a simple statistical approach. See the article here (https://doi.org/10.1186/s40168-018-0605-2) and tutorials here (https://benjjneb.github.io/decontam/). 
 
-Since we only have one blank control sample, we cannot evaluate the prevalence approach and instead focus on the *frequency* approach. We measured DNA concentration with nanodrop prior to library preparation and these values are stored in the phyloseq object's sample data as "DNA_conc".
+Decontam implements two primary approaches for identifying contaminants. The first approach is a frequency approach which identifies significant inverse correlations between ASV abundance and DNA concentration measured prior to library prep. The second approach is prevalence approach which identifies ASVs that appear more often (are more prevalent) in blank control samples than in experimental samples. There are also many combinations available for using information from both of these approaches (see the decontam website for more details).  
 
-This document assumes that you have read **Introduction and evaluating contaminants** and have the data file from running that section.  
+Since we only have one blank control sample, we cannot evaluate the prevalence approach and instead focus on the frequency approach. We measured DNA concentration with nanodrop prior to library preparation and these values are stored in the phyloseq object's sample data as "DNA_conc".
+
+This document assumes that you have read "Introduction and evaluating contaminants" and have the data file from running that section.  
 
 ### Set up the workspace
-
-This analysis uses freely available open source packages that are available on CRAN and Bioconductor.
-
-To run this analysis yourself, download the supplemental material here along with the R markdown file. 
 
 ```{r set workspace}
 # load libraries
@@ -59,7 +54,7 @@ Running decontam is straightforward. We will use the isContaminant function from
 * the threshold for determining if an ASV is a contaminant or not 
 * the name of the column from the sample data that contains the DNA concentration.  
 
-We will store the results of decontam in and object called **contam.freq**:
+We will store the results of decontam in and object called contam.freq:
 
 ```{r }
 # Evaluate different thresholds of decontam
@@ -76,6 +71,7 @@ Our new object contam.freq contains the results from running decontam. This obje
 * contam.freq\$contaminant - indicates if an ASV is considered a contaminant (TRUE) or not (FALSE) based on criteria provided in the function call. 
 
 All of these values can be reviewed by viewing the contam.freq data frame. Here we will create a temporary data frame with shortened rownames for viewing since our rownames are the ASV sequences and are quite long (making viewing difficult).
+
 ```{r }
 ## Create a temporary copy of contam.freq with shorter rownames for easy display
 temp_contam.freq <- contam.freq
@@ -87,17 +83,21 @@ rownames(temp_contam.freq) <- paste0("SV",seq(nrow(temp_contam.freq)))
 print(head(temp_contam.freq))
 
 ```
-It is also possible to plot the abundance of individual ASVs by DNA concentration with the **plot_frequency** function in decontam:
+
+It is also possible to plot the abundance of individual ASVs by DNA concentration with the plot_frequency function in decontam:
+
 ```{r fig.width=3,fig.height=3}
 set.seed(100)
 plot_frequency(mock_ps, taxa_names(mock_ps)[sample(which(contam.freq$contaminant),1)], conc="DNA_conc")
 ```
 
 Next, we use the contam.freq\$contaminant result along with the prune_taxa phyloseq function to create a phyloseq object without the suspected contaminants.  
+
 ```{r }
 # create phyloseq object with contaminant ASVs removed  
 ps.noncontam.freq <- prune_taxa(!contam.freq$contaminant, mock_ps)
 ```
+
 We can also use this approach to create a phyloseq object of just contaminant ASVs so that they can be inspected more closely/confirmed as contaminants.
 
 ```{r }
@@ -118,7 +118,9 @@ ps_norm_exp <- prune_samples(sample_names(ps_norm_exp) %in% sample_names(ps_remo
 print(sample_sums(ps_removed_prop)/(100-sample_sums(ps_norm_exp)) * 100)
 
 ```
-We can also identify the percentage of contaminant still remaining in the data set
+
+We can also identify the percentage of contaminant still remaining in the data set.
+
 ```{r}
 # Identify the percentage of contaminant still remaining in the dataset
 # normalize the post-decontam phyloseq object to 100
@@ -131,12 +133,14 @@ sample_sums(ps_rem_contam)
 ```
 
 We can also check that none of the expected ASVs were removed. 
+
 ```{r}
 # identify if expected ASVs are present in the contaminant ASVs
 intersect(taxa_names(contam.freq), taxa_names(mock_ps))
 ```
 
-We repeat this on various levels of the threshold parameter to identify the ideal one to use on our data set. To do this, we create a function called **testIsContam** 
+We repeat this on various levels of the threshold parameter to identify the ideal one to use on our data set. To do this, we create a function called testIsContam
+
 ```{r}
 # Create a function to evaluate the performance of decontam at different thresholds
 testIsContam <-  function(physeq, thr, mock_taxa){
@@ -297,6 +301,7 @@ summary_table <- function(results, thr){
   
 }
 ```
+
 # Print Figures
 ```{r fig.width=8,fig.height=4}
 results_decontam_0_1 <- testIsContam(mock_ps,0.1, mock_taxa)
@@ -306,6 +311,7 @@ results_decontam_0_4 <- testIsContam(mock_ps,0.4, mock_taxa)
 results_decontam_0_5 <- testIsContam(mock_ps,0.5, mock_taxa)
 
 ```
+
 # Display tables
 ```{r, fig.width=10, fig.height=4}
 
@@ -316,7 +322,9 @@ summary_table(results_decontam_0_4, 0.4)
 summary_table(results_decontam_0_5,0.5)
 
 ```
+
 Using a threshold of 0.5 is reasonable since it removed many of the contaminant ASVs but did not remove any of the expected ASVs. 
+
 ```{r}
 contam.freq <- isContaminant(mock_ps, method="frequency", threshold=0.5, conc="DNA_conc")
 ps.noncontam.freq <- prune_taxa(!contam.freq$contaminant, mock_ps)
@@ -329,8 +337,7 @@ We plot the stacked bar plot of the contaminant corrected microbiome profiles fo
 expCompBarPlot(ps.noncontam.freq, mock_taxa, 'Contaminant removed, Decontam (frequency, thr = 0.5)')
 ```
 
-
-This work demonstrates using the frequency method implemented in decontam for identifying and removing contaminants from a 16S rRNA gene sequencing experiment. We were able to evaluate the performance of this method since we used a dilution series of a mock microbial community, where the expected composition of the samples are known. Decontam is one analytical method for identifying and removing contaminants from 16S rRNA gene sequencing data. We also evaluated using SourceTracker, which is documented [here](.ControllingContaminants16S_SourceTrackerPrep.html). 
+This work demonstrates using the frequency method implemented in decontam for identifying and removing contaminants from a 16S rRNA gene sequencing experiment. We were able to evaluate the performance of this method since we used a dilution series of a mock microbial community, where the expected composition of the samples are known. Decontam is one analytical method for identifying and removing contaminants from 16S rRNA gene sequencing data. We also evaluated using SourceTracker. 
 
 ```{r}
 vars_to_keep <- ls(pattern = 'results')
@@ -338,7 +345,4 @@ vars_to_rm <- ls()
 vars_to_rm <-vars_to_rm[!vars_to_rm %in% vars_to_keep]
 rm(list = vars_to_rm)
 rm(vars_to_rm, vars_to_keep)
-
-save.image('results_decontam.RData')
-
 ```
